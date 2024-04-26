@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "rai-assign2"
+version = "0.1.0"
+description = ""
+authors = ["wilfred11 <wilfredvancasteren@hotmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fairlearn = "^0.10.0"
+scikit-learn = "^1.4.2"
+matplotlib = "^3.8.4"
+pandas = "^2.2.2"
+seaborn = "^0.13.2"
+pingouin = "^0.5.4"
+openpyxl = "^3.1.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
