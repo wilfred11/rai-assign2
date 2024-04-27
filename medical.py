@@ -1,3 +1,6 @@
+import os
+import shutil
+
 import numpy as np
 import pandas as pd
 import pingouin as pg
@@ -7,6 +10,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
+from pathlib import Path
+
 from sklearn.utils import Bunch
 from sklearn.metrics import (
     balanced_accuracy_score,
@@ -53,6 +58,10 @@ def load_dataset():
 
     print(data.head())
 
+    data = delete_rows(data)
+    data["race_all"] = data["race"].copy()
+    data["race"] = data["race"].replace({"Asian": "Other", "Hispanic": "Other"})
+
     # Show the values of all binary and categorical features
     categorical_values = {}
     for col in data:
@@ -84,15 +93,58 @@ def load_dataset():
     return data
 
 
-def medical(show_predictive_validity, show_pivot, show_train_test, show_coefficients, show_metrics_before,
+def clean_dirs():
+    try:
+        shutil.rmtree('./generated/')
+    except:
+        print("An exception occurred")
+
+    pd = './generated'
+
+    os.mkdir(pd)
+    path = os.path.join(pd, 'lr')
+    path1 = os.path.join(pd, 'hg')
+    os.mkdir(path)
+    os.mkdir(path1)
+
+
+def delete_rows(df):
+    print('len:', len(df))
+    df.drop(df[df['gender'] == 'Unknown/Invalid'].index, inplace=True)
+    print('len:', len(df))
+    print('gender unique:', df.gender.unique())
+    return df
+
+
+def show_counts_sensitive_variables(df):
+    plt.rcParams["figure.figsize"] = (20, 10)
+    df["race"].value_counts().plot(kind='bar', rot=45, title='Patients, grouped by race, count.')
+    plt.savefig('./generated/' + 'race_counted.png')
+    plt.show()
+    df.gender.value_counts().plot(kind='bar', rot=45, title='Patients, grouped by gender, count.')
+    plt.savefig('./generated/' + 'gender_counted.png')
+    plt.show()
+    dfg = df.groupby(by=["race", "gender", "readmit_30_days"]).size()
+    dfg.plot(kind='barh', title='Patients, grouped by race, gender and readmit_30_days, counted.')
+    plt.savefig('./generated/' + 'patients_grouped_counted.png')
+    plt.show()
+
+
+def medical(show_predictive_validity, show_counts_sf,  show_pivot, show_train_test, show_coefficients, show_metrics_before,
             show_metrics_after, use_log_reg):
+    clean_dirs()
     random_seed = 445
     np.random.seed(random_seed)
 
     df = load_dataset()
 
     info(df)
+
+    if show_counts_sf:
+        show_counts_sensitive_variables(df)
+
     sensitive_features = ['race', 'gender']
+
     metrics_dict = {
         "selection_rate": selection_rate,
         "false_negative_rate": false_negative_rate,
@@ -100,31 +152,19 @@ def medical(show_predictive_validity, show_pivot, show_train_test, show_coeffici
         "count": count
     }
 
-    df["race"].value_counts().plot(kind='bar', rot=45)
-    plt.show()
-
     fig, ax = plt.subplots(1, 1, figsize=(16, 5))
     sns.countplot(x='race', hue='readmit_30_days', data=df, ax=ax)
     plt.show()
-    #sns.countplot(x='race', hue='salary >50k', data=df, ax=ax[1])
-    #sns.kdeplot(x='age', hue='salary >50k', data=df_visu, ax=ax[2])
-
-    #groups=df.groupby(['gender', 'race', 'age', 'readmit_30_days'])
-
-    #to_be_grouped = df[["gender", "race", "age", "readmit_30_days"]].copy()
-    #to_be_grouped.groupby(['race', 'gender', 'age']).readmit_30_days.value_counts().unstack(3).plot.barh()
-    #plt.show()
 
     if show_pivot:
         pivot(df)
 
     # drop gender group Unknown/Invalid
-    df = df.copy().query("gender != 'Unknown/Invalid'")
+    #df = df.copy().query("gender != 'Unknown/Invalid'")
 
     # retain the original race as race_all, and merge Asian+Hispanic+Other
-    df["race_all"] = df["race"].copy()
-    df["race"] = df["race"].replace({"Asian": "Other", "Hispanic": "Other"})
-    #df["race"] = df["race"].rename_categories({"Asian": "Other", "Hispanic": "Other"})
+
+    #print(df["gender"].unique())
 
     if show_predictive_validity:
         pairwise_correlation(df)
@@ -146,12 +186,6 @@ def medical(show_predictive_validity, show_pivot, show_train_test, show_coeffici
         3).plot.barh()
     plt.show()
 
-    '''data_pct_crosstab = pd.crosstab(columns=df['gender'],  # Doesn't work with some NAs
-                                    dropna=False,  # See NAs in table
-                                    margins=True,  # See row and col totals
-                                    normalize='index',
-                                    index=df['gender'])'''
-    '''ct=pd.crosstab(df.index, [df.race, df.gender])'''
     groups_percentages(df, ['gender', 'race', 'age'])
 
     X_train, X_test, Y_train, Y_test, A_train, A_test, df_train, df_test = prepare_test_train_datasets(df, random_seed)
@@ -159,17 +193,8 @@ def medical(show_predictive_validity, show_pivot, show_train_test, show_coeffici
 
     if show_train_test:
         figures_test_train(A_train_bal, Y_train_bal, A_test, Y_test)
-    '''
-    unmitigated_pipeline = Pipeline(steps=[
-        ("preprocessing", StandardScaler()),
-        ("logistic_regression", LogisticRegression(max_iter=1000))
-    ])
 
-    unmitigated_pipeline.fit(X_train_bal, Y_train_bal)
 
-    Y_pred_proba = unmitigated_pipeline.predict_proba(X_test)[:, 1]
-    Y_pred = unmitigated_pipeline.predict(X_test)
-    '''
 
     if use_log_reg:
         Y_pred_proba, Y_pred, unmitigated_pipeline = train_model_lr(X_train_bal, Y_train_bal, X_test)
@@ -191,16 +216,28 @@ def medical(show_predictive_validity, show_pivot, show_train_test, show_coeffici
 
     if show_metrics_after:
         metrics(metrics_dict, df_test[sensitive_features], Y_test, Y_pred_postprocess, df_test, use_log_reg, True,
-                False)
+                True)
 
-    eg = get_exponential_gradient(unmitigated_pipeline)
-    eg.fit(X_train_bal, Y_train_bal, sensitive_features=A_train_bal)
-    Y_pred_reductions = eg.predict(X_test, random_state=random_seed)
+    if use_log_reg:
+        sample_weight1 = np.ones(len(Y_train_bal))
+        sample_weight2 = sample_weight1 / len(Y_train_bal)
+        estimator = unmitigated_pipeline.named_steps['logistic_regression']
 
-    if show_metrics_after:
-        metrics(metrics_dict, df_test[sensitive_features], Y_test, Y_pred_reductions, df_test, use_log_reg, False, False)
+        #eg = get_exponentiated_gradient(estimator)
+        eg = get_exponentiated_gradient1(estimator, random_seed)
+        #** {'LogisticRegression__sample_weight': weights}
+        #eg.fit(X_train_bal, Y_train_bal, )
+        #eg.fit(X_train_bal, Y_train_bal,sensitive_features=A_train_bal, **{'LogisticRegression__sample_weight':sample_weight2})
+        #kw = {'sensitive_features': A_train_bal, 'sample_weight': sample_weight2}
+        print(unmitigated_pipeline.named_steps['logistic_regression'])
+        eg.fit(X_train_bal, Y_train_bal, sensitive_features=A_train_bal)
+        Y_pred_reductions = eg.predict(X_test, random_state=random_seed)
 
-    explore_eg_predictors(eg, X_test, Y_test, A_test)
+        if show_metrics_after:
+            metrics(metrics_dict, df_test[sensitive_features], Y_test, Y_pred_reductions, df_test, use_log_reg, False,
+                    True)
+
+        explore_eg_predictors(eg, X_test, Y_test, A_test)
 
 
 def coefficients(unmitigated_pipeline, columns):
@@ -232,6 +269,7 @@ def train_model_lr(X_train_bal, Y_train_bal, X_test):
     unmitigated_pipeline = Pipeline(steps=[
         ("preprocessing", StandardScaler()),
         ("logistic_regression", LogisticRegression(max_iter=1000))
+
     ])
 
     unmitigated_pipeline.fit(X_train_bal, Y_train_bal)
@@ -244,7 +282,7 @@ def train_model_lr(X_train_bal, Y_train_bal, X_test):
 def train_model_hg(X_train_bal, Y_train_bal, X_test):
     unmitigated_pipeline = Pipeline(steps=[
         ("preprocessing", StandardScaler()),
-        ("logistic_regression", HistGradientBoostingClassifier(max_iter=1000))
+        ("hist_gradient_boosting_classifier", HistGradientBoostingClassifier(max_iter=1000))
     ])
 
     unmitigated_pipeline.fit(X_train_bal, Y_train_bal)
@@ -330,6 +368,14 @@ def summary(df, pred=None):
 
 
 def pivot(df):
+    #print('ftt', A_train_bal[['race', 'gender']].value_counts().reset_index(name='count'))
+    print("pivot")
+    dfg = df.groupby(by=["race", "gender", "readmit_30_days"]).size()
+    # A_train_bal[['race', 'gender']].value_counts().reset_index(name='count').plot(kind='barh', )
+    dfg.plot(kind='barh', title='Patients, grouped by race, gender and readmit_30_days, counted.')
+    plt.savefig('./generated/' + 'patients_grouped_counted.png')
+    plt.show()
+
     pv = np.round(pd.pivot_table(df, values='readmit_30_days',
                                  index=['age'],
                                  observed=False,
@@ -342,7 +388,7 @@ def pivot(df):
                             observed=False,
                             columns=['age'],
                             aggfunc=np.count_nonzero,
-                            fill_value=0), 0).plot.barh(figsize=(10, 7), title='Mean car price by make and '
+                            fill_value=0), 0).plot.barh(figsize=(10, 7), title='ean car price by make and '
                                                                                'number of doors')
     plt.savefig('./generated/' + 'pivot_.png')
     plt.show()
@@ -391,6 +437,12 @@ def resample_dataset(X_train, Y_train, A_train):
 
 
 def figures_test_train(A_train_bal, Y_train_bal, A_test, Y_test):
+    print('ftt', A_train_bal[['race', 'gender']].value_counts().reset_index(name='count'))
+    dfg = A_train_bal.groupby(by=["race", "gender"]).size()
+    #A_train_bal[['race', 'gender']].value_counts().reset_index(name='count').plot(kind='barh', )
+    dfg.plot(kind='barh')
+    plt.show()
+
     sns.countplot(x="race", data=A_train_bal)
     plt.title("Sensitive Attributes for Training Dataset")
     plt.savefig('./generated/' + 'sa-train.png')
@@ -473,10 +525,23 @@ def get_threshold_optimizer(unmitigated_pipeline):
     return postprocess_est
 
 
-def get_exponential_gradient(unmitigated_pipeline):
+def get_exponentiated_gradient(unmitigated_pipeline):
     expgrad_est = ExponentiatedGradient(
         estimator=unmitigated_pipeline,
-        constraints=TruePositiveRateParity(difference_bound=0.02)
+        constraints=TruePositiveRateParity(difference_bound=0.02),
+        #sample_weight_name='sample_weight'
+        sample_weight_name="logistic_regression__sample_weight",
+
+    )
+    return expgrad_est
+
+
+def get_exponentiated_gradient1(unmitigated_pipeline, random_seed):
+    expgrad_est = ExponentiatedGradient(
+        estimator=LogisticRegression(max_iter=1000, random_state=random_seed),
+        constraints=TruePositiveRateParity(difference_bound=0.02),
+        sample_weight_name='sample_weight'
+
     )
     return expgrad_est
 
