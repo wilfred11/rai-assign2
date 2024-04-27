@@ -73,6 +73,7 @@ def load_dataset():
 
     categorical_features = [
         "race",
+        "race_all",
         "gender",
         "age",
         "discharge_disposition_id",
@@ -100,12 +101,22 @@ def clean_dirs():
         print("An exception occurred")
 
     pd = './generated'
+    try:
+        os.mkdir(pd)
+    except:
+        print("An exception occurred")
 
-    os.mkdir(pd)
     path = os.path.join(pd, 'lr')
     path1 = os.path.join(pd, 'hg')
-    os.mkdir(path)
-    os.mkdir(path1)
+    try:
+        os.mkdir(path)
+    except:
+        print("An exception occurred")
+
+    try:
+        os.mkdir(path1)
+    except:
+        print("An exception occurred")
 
 
 def delete_rows(df):
@@ -293,10 +304,47 @@ def train_model_hg(X_train_bal, Y_train_bal, X_test):
 
 
 def pairwise_correlation(df):
-    corr = pg.pairwise_corr(df, method='pearson')
+    df_= df.copy()
+    df_ = df_.drop(columns=[
+        "race",
+        "race_all",
+        "discharge_disposition_id",
+        "readmitted",
+        "readmit_binary",
+        "readmit_30_days"
+    ])
+    categorical_features = [
+        "gender",
+        "age",
+        "admission_source_id",
+        "medical_specialty",
+        "primary_diagnosis",
+        "max_glu_serum",
+        "A1Cresult",
+        "insulin",
+        "change",
+        "diabetesMed",
+    ]
+
+    list(df_.columns.values)
+    df_dummies = pd.get_dummies(df_[categorical_features])
+    print('dum cols:',df_dummies.columns)
+    df_numeric = df_[list(df_.columns.values)]
+    print('numeric cols:', df_numeric.columns)
+    new_df_ = [df_dummies, df_numeric]
+    new_df = pd.concat(new_df_, axis=1)
+
+    new_df.to_csv('./generated/data_num.csv')
+
+    print("pairwise correlation")
+    sns.heatmap(new_df.corr())
+
+    '''corr = pg.pairwise_corr(df, method='pearson')
+    print('corr:', corr)
     corr = corr[["X", "Y", 'r']]
     corr_ = corr[(corr['r'] > .6)]
-    print(corr_)
+
+    print(corr_)'''
 
 
 def predictive_validity(df):
