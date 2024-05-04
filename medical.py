@@ -58,9 +58,18 @@ def load_dataset():
 
     print(data.head())
 
+    data.to_csv('./data/diabetic.csv', sep=';')
+
+    data = data.drop(columns=[
+        "discharge_disposition_id",
+        "readmitted",
+        #"readmit_30_days"
+    ])
+
     data = delete_rows(data)
-    data["race_all"] = data["race"].copy()
+    #data["race_all"] = data["race"].copy()
     data["race"] = data["race"].replace({"Asian": "Other", "Hispanic": "Other"})
+    data["diabetesMed"] = data["diabetesMed"].replace({"Yes": True, "No": False})
 
     # Show the values of all binary and categorical features
     categorical_values = {}
@@ -71,7 +80,7 @@ def load_dataset():
     categorical_values_df = pd.DataFrame(categorical_values).fillna('')
     categorical_values_df.T
 
-    categorical_features = [
+    '''categorical_features = [
         "race",
         "race_all",
         "gender",
@@ -86,10 +95,10 @@ def load_dataset():
         "change",
         "diabetesMed",
         "readmitted"
-    ]
+    ]'''
     print('un:', data.age.unique())
 
-    for col_name in categorical_features:
+    for col_name in categorical_features():
         data[col_name] = data[col_name].astype("category")
     return data
 
@@ -127,21 +136,25 @@ def delete_rows(df):
     return df
 
 
-def show_counts_sensitive_variables(df):
+def show_counts_sensitive_variables(df, show = False):
     plt.rcParams["figure.figsize"] = (20, 10)
     df["race"].value_counts().plot(kind='bar', rot=45, title='Patients, grouped by race, count.')
     plt.savefig('./generated/' + 'race_counted.png')
-    plt.show()
+    if show:
+        plt.show()
     df.gender.value_counts().plot(kind='bar', rot=45, title='Patients, grouped by gender, count.')
     plt.savefig('./generated/' + 'gender_counted.png')
-    plt.show()
+    if show:
+        plt.show()
     dfg = df.groupby(by=["race", "gender", "readmit_30_days"]).size()
     dfg.plot(kind='barh', title='Patients, grouped by race, gender and readmit_30_days, counted.')
     plt.savefig('./generated/' + 'patients_grouped_counted.png')
-    plt.show()
+    if show:
+        plt.show()
 
 
-def medical(show_predictive_validity, show_counts_sf,  show_pivot, show_train_test, show_coefficients, show_metrics_before,
+def medical(show_predictive_validity, show_correlations, show_counts_sf, show_pivot, show_train_test, show_coefficients,
+            show_metrics_before,
             show_metrics_after, use_log_reg):
     clean_dirs()
     random_seed = 445
@@ -176,36 +189,40 @@ def medical(show_predictive_validity, show_counts_sf,  show_pivot, show_train_te
     # retain the original race as race_all, and merge Asian+Hispanic+Other
 
     #print(df["gender"].unique())
-
-    if show_predictive_validity:
-        pairwise_correlation(df)
-        predictive_validity(df)
+    show = False
 
     print(df["readmit_30_days"].value_counts())  # counts
     print(df["readmit_30_days"].value_counts(normalize=True))  # frequencies
 
     sns.barplot(x="readmit_30_days", y="race", data=df, errorbar=('ci', 95))
     plt.savefig('./generated/' + 'bp_readmit_race.png')
-    plt.show()
+    if show:
+        plt.show()
+    plt.clf()
 
     sns.pointplot(y="medicaid", x="race", data=df, linestyle='none')
     plt.savefig('./generated/' + 'pp_medicaid_race.png')
-    plt.show()
+    if show:
+        plt.show()
+    plt.clf()
 
     to_be_grouped = df[["gender", "race", "age", "readmit_30_days"]].copy()
     to_be_grouped.groupby(['race', 'gender', 'age'], observed=False).readmit_30_days.value_counts().unstack(
         3).plot.barh()
-    plt.show()
+    if show:
+        plt.show()
+    plt.clf()
 
     groups_percentages(df, ['gender', 'race', 'age'])
+
+    if show_predictive_validity:
+        predictive_validity(df, False)
 
     X_train, X_test, Y_train, Y_test, A_train, A_test, df_train, df_test = prepare_test_train_datasets(df, random_seed)
     X_train_bal, Y_train_bal, A_train_bal = resample_dataset(X_train, Y_train, A_train)
 
     if show_train_test:
         figures_test_train(A_train_bal, Y_train_bal, A_test, Y_test)
-
-
 
     if use_log_reg:
         Y_pred_proba, Y_pred, unmitigated_pipeline = train_model_lr(X_train_bal, Y_train_bal, X_test)
@@ -250,29 +267,41 @@ def medical(show_predictive_validity, show_counts_sf,  show_pivot, show_train_te
 
         explore_eg_predictors(eg, X_test, Y_test, A_test)
 
+    df = denominalize(df)
 
-def coefficients(unmitigated_pipeline, columns):
+    if show_correlations:
+        pairwise_correlation(df)
+        sensitive_correlation(df)
+
+
+def coefficients(unmitigated_pipeline, columns, show=False):
     coef_series = pd.Series(data=unmitigated_pipeline.named_steps["logistic_regression"].coef_[0], index=columns)
     coef_series.sort_values().plot.barh(figsize=(4, 20), legend=False)
     plt.savefig(generated_dir(True) + 'lr_coef.png')
-    plt.show()
+    if show:
+        plt.show()
+    plt.clf()
 
 
-def display_performance(Y_test, Y_pred_proba, Y_pred):
+def display_performance(Y_test, Y_pred_proba, Y_pred, show=False):
     fpr, tpr, threshold = roc_curve(Y_test, Y_pred_proba)
     p = RocCurveDisplay(fpr=fpr, tpr=tpr)
     p.plot()
-    plt.show()
+    if show:
+        plt.show()
     plt.savefig(generated_dir(True) + 'lr_roc_curve.png')
+    plt.clf()
     print(balanced_accuracy_score(Y_test, Y_pred))
 
 
-def display_performance_hg(Y_test, Y_pred):
+def display_performance_hg(Y_test, Y_pred, show=False):
     fpr, tpr, threshold = roc_curve(Y_test, Y_pred)
     p = RocCurveDisplay(fpr=fpr, tpr=tpr)
     p.plot()
-    plt.show()
+    if show:
+        plt.show()
     plt.savefig(generated_dir(False) + 'hg_roc_curve.png')
+
     print(balanced_accuracy_score(Y_test, Y_pred))
 
 
@@ -303,7 +332,47 @@ def train_model_hg(X_train_bal, Y_train_bal, X_test):
     return Y_pred, unmitigated_pipeline
 
 
-def pairwise_correlation(df):
+def numeric_and_binary_features():
+    return ['time_in_hospital', 'num_lab_procedures', 'num_procedures', 'num_medications', 'number_diagnoses',
+            'medicare', 'medicaid', 'had_emergency', 'had_inpatient_days', 'had_outpatient_days', 'readmit_binary',
+            'diabetesMed']
+
+
+def categorical_features():
+    return ["race", "gender", "age", "admission_source_id", "medical_specialty", "primary_diagnosis", "max_glu_serum",
+            "A1Cresult", "insulin", "change"]
+
+
+def correlations_cols_of_interest():
+    return ['race_AfricanAmerican', 'gender_Female']
+
+
+def denominalize(df):
+    print('denominalize')
+    df_ = df.copy()
+    print('cols:', df.columns)
+    df_ = df_.drop(columns=[
+        #"race",
+        #"race_all",
+        #"discharge_disposition_id",
+        #"readmitted",
+        "readmit_binary",
+        #"readmit_30_days"
+    ])
+
+    df_denom = pd.get_dummies(df_[categorical_features()])
+
+    cols_to_be_filtered = [item for item in df_ if item not in categorical_features()]
+    df_[cols_to_be_filtered].to_csv('./generated/data_numeric_bin.csv')
+    df_denom.to_csv('./generated/data_denom.csv')
+    cols = [df_denom, df_[cols_to_be_filtered]]
+    df_expanded = pd.concat(cols, axis=1)
+    df_expanded.to_csv('./generated/data_expanded.csv')
+    return df_expanded
+
+
+def pairwise_correlation(df, show=False):
+    '''
     df_= df.copy()
     df_ = df_.drop(columns=[
         "race",
@@ -313,6 +382,7 @@ def pairwise_correlation(df):
         "readmit_binary",
         "readmit_30_days"
     ])
+
     categorical_features = [
         "gender",
         "age",
@@ -326,18 +396,27 @@ def pairwise_correlation(df):
         "diabetesMed",
     ]
 
+    cols_to_be_filtered = [item for item in df_ if item not in categorical_features]
+    print('cols to be f:', cols_to_be_filtered)
     list(df_.columns.values)
     df_dummies = pd.get_dummies(df_[categorical_features])
     print('dum cols:',df_dummies.columns)
     df_numeric = df_[list(df_.columns.values)]
     print('numeric cols:', df_numeric.columns)
-    new_df_ = [df_dummies, df_numeric]
-    new_df = pd.concat(new_df_, axis=1)
+    '''
+    #new_df_ = [df_dummies, df_numeric]
+    #new_df = pd.concat(new_df_, axis=1)
 
-    new_df.to_csv('./generated/data_num.csv')
-
+    plt.rcParams["figure.figsize"] = (20, 20)
     print("pairwise correlation")
-    sns.heatmap(new_df.corr())
+    sns.heatmap(df.corr().round(2), vmin=-1, vmax=1, annot=True, square=True, cbar=False, annot_kws={'size': 7})
+    plt.savefig('./generated/' + 'correlations.png', dpi=400)
+    if show:
+        plt.show()
+    plt.clf()
+
+    #dfg = df.groupby(by=["race", "gender"]).[['readmit_30_days']].corr()
+    #print('grouped corr', dfg)
 
     '''corr = pg.pairwise_corr(df, method='pearson')
     print('corr:', corr)
@@ -347,32 +426,70 @@ def pairwise_correlation(df):
     print(corr_)'''
 
 
-def predictive_validity(df):
+def sensitive_correlation(df):
+    #cor_col_ = pd.DataFrame()
+    cor_df = pd.DataFrame()
+    df_ = df.copy()
+    #d = df
+
+    filter_col = [col for col in df_ if col.startswith('race')]
+    #print('filter col:', filter_col)
+    for col in filter_col:
+        corr_col_ = df_[df_.columns[0:]].corr()[col]
+        #print('type cor_col_:', type(corr_col_))
+        #print('cor_col_:', corr_col_)
+        new_list = filter_col.copy()
+        cor_col = corr_col_.to_frame(col).T.copy()
+        #print('cor_col:', cor_col)
+        cor_col = cor_col.drop(columns=new_list, axis=1)
+        #print('cor_col_:', cor_col)
+        cor_df = pd.concat([cor_df, cor_col.copy()], axis=0)
+    cor_df.to_csv('./generated/corr_race.csv')
+    print('fc corr:', cor_df)
+
+
+def predictive_validity(df, show=False):
     sns.pointplot(y="had_emergency", x="readmit_30_days",
                   data=df, errorbar=('ci', 95), linestyle='none')
-    plt.show()
+    plt.savefig('./generated/' + 'pv_readmit_30_had_emergency.png')
+    if show:
+        plt.show()
+    plt.clf()
 
     sns.pointplot(y="had_inpatient_days", x="readmit_30_days",
                   data=df, errorbar=('ci', 95), linestyle='none')
-    plt.show()
+    plt.savefig('./generated/' + 'pv_readmit_30_had_inpatient_days.png')
+    if show:
+        plt.show()
+    plt.clf()
 
     sns.catplot(y="had_emergency", x="readmit_30_days", hue="race", data=df,
                 kind="point", errorbar=('ci', 95), dodge=True, linestyle='none')
-
-    plt.show()
+    plt.savefig('./generated/' + 'pv_readmit_30_had_emergency_race.png')
+    if show:
+        plt.show()
+    plt.clf()
 
     sns.catplot(y="had_inpatient_days", x="readmit_30_days", hue="race", data=df,
                 kind="point", errorbar=('ci', 95), dodge=True, linestyle='none')
-
-    plt.show()
+    plt.savefig('./generated/' + 'pv_readmit_30_had_inpatient_days_race.png')
+    if show:
+        plt.show()
+    plt.clf()
 
     sns.catplot(y="had_inpatient_days", x="readmit_30_days", hue="gender", data=df,
                 kind="point", errorbar=('ci', 95), dodge=True, linestyle='none')
-    plt.show()
+    plt.savefig('./generated/' + 'pv_readmit_30_had_inpatient_days_gender.png')
+    if show:
+        plt.show()
+    plt.clf()
 
     sns.catplot(y="had_inpatient_days", x="readmit_30_days", hue="age", data=df,
                 kind="point", errorbar=('ci', 95), dodge=True, linestyle='none')
-    plt.show()
+    plt.savefig('./generated/' + 'pv_readmit_30_had_inpatient_days_age.png')
+    if show:
+        plt.show()
+    plt.clf()
 
 
 def groups_percentages(df, column_names):
@@ -415,7 +532,7 @@ def summary(df, pred=None):
     return str
 
 
-def pivot(df):
+def pivot(df, show=False):
     #print('ftt', A_train_bal[['race', 'gender']].value_counts().reset_index(name='count'))
     print("pivot")
     dfg = df.groupby(by=["race", "gender", "readmit_30_days"]).size()
@@ -439,7 +556,8 @@ def pivot(df):
                             fill_value=0), 0).plot.barh(figsize=(10, 7), title='ean car price by make and '
                                                                                'number of doors')
     plt.savefig('./generated/' + 'pivot_.png')
-    plt.show()
+    if show:
+        plt.show()
 
     print(pv)
 
@@ -449,14 +567,20 @@ def prepare_test_train_datasets(df, random_seed):
     #demographic = ["race", "gender"]
     sensitive = ["race", "gender"]
     Y, A = df.loc[:, target_variable], df.loc[:, sensitive]
-    X = pd.get_dummies(df.drop(columns=[
+    '''X = pd.get_dummies(df.drop(columns=[
         "race",
         "race_all",
         "discharge_disposition_id",
         "readmitted",
         "readmit_binary",
         "readmit_30_days"
+    ]))'''
+    X = pd.get_dummies(df.drop(columns=[
+        "race",
+        "readmit_binary",
+        "readmit_30_days"
     ]))
+    print('xcols:', X.columns)
 
     #random_seed = 445
     #np.random.seed(random_seed)
@@ -484,29 +608,36 @@ def resample_dataset(X_train, Y_train, A_train):
     return X_train, Y_train, A_train
 
 
-def figures_test_train(A_train_bal, Y_train_bal, A_test, Y_test):
+def figures_test_train(A_train_bal, Y_train_bal, A_test, Y_test, show=False):
     print('ftt', A_train_bal[['race', 'gender']].value_counts().reset_index(name='count'))
     dfg = A_train_bal.groupby(by=["race", "gender"]).size()
     #A_train_bal[['race', 'gender']].value_counts().reset_index(name='count').plot(kind='barh', )
     dfg.plot(kind='barh')
-    plt.show()
+    plt.savefig('./generated/' + 'sa-train-bal.png')
+    if show:
+        plt.show()
 
     sns.countplot(x="race", data=A_train_bal)
     plt.title("Sensitive Attributes for Training Dataset")
     plt.savefig('./generated/' + 'sa-train.png')
-    plt.show()
+    if show:
+        plt.show()
+
     sns.countplot(x=Y_train_bal)
     plt.title("Target Label Histogram for Training Dataset")
     plt.savefig('./generated/' + 'tl-histo-train.png')
-    plt.show()
+    if show:
+        plt.show()
     sns.countplot(x="race", data=A_test)
     plt.title("Sensitive Attributes for Testing Dataset")
     plt.savefig('./generated/' + 'sa-test.png')
-    plt.show()
+    if show:
+        plt.show()
     sns.countplot(x=Y_test)
     plt.title("Target Label Histogram for Test Dataset")
     plt.savefig('./generated/' + 'tl-histo-test.png')
-    plt.show()
+    if show:
+        plt.show()
 
 
 def metrics(metrics_dict, sensitive_features, Y_test, Y_pred, df_test, use_log_reg, use_treshold, unmitigated):
@@ -595,10 +726,11 @@ def get_exponentiated_gradient1(unmitigated_pipeline, random_seed):
 
 
 def explore_eg_predictors(eg, X_test, Y_test, A_test):
-    predictors = eg.predictors_
+    pass
+    '''predictors = eg.predictors_
     print(predictors)
 
     sweep_preds = [clf.predict(X_test) for clf in predictors]
     balanced_error_sweep = [1 - balanced_accuracy_score(Y_test, Y_sweep) for Y_sweep in sweep_preds]
     fnr_diff_sweep = [false_negative_rate(Y_test, Y_sweep, sensitive_features=A_test).difference() for Y_sweep in
-                      sweep_preds]
+                      sweep_preds]'''
