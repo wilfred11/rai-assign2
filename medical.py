@@ -21,8 +21,7 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 from fairlearn.postprocessing import ThresholdOptimizer
 from fairlearn.reductions import ExponentiatedGradient, TruePositiveRateParity
 
-from directories import generated, clean_dirs, generated_dir, label_imbalance_dir
-from predictive_validity import predictive_validity
+from directories import generated, clean_dirs, generated_dir
 
 pd.set_option("display.float_format", "{:.3f}".format)
 set_config(display="diagram")
@@ -87,34 +86,6 @@ def show_counts_sensitive_variables(df, show=False):
     if show:
         plt.show()
     plt.clf()
-
-def label_imbalance(df, show= False):
-    print(df["readmit_30_days"].value_counts())  # counts
-    print(df["readmit_30_days"].value_counts(normalize=True))  # frequencies
-
-    sns.barplot(x="readmit_30_days", data=df, ci=95)
-    plt.savefig(label_imbalance_dir() + 'li_readmit_30_days.png')
-    if show:
-        plt.show()
-
-    sns.barplot(x="readmit_30_days", y="race", data=df, errorbar=('ci', 95))
-    plt.savefig(label_imbalance_dir()+ 'li_readmit_race.png')
-    if show:
-        plt.show()
-
-    sns.pointplot(y="medicaid", x="race", data=df, linestyle='none')
-    plt.savefig(label_imbalance_dir() + 'pp_medicaid_race.png')
-    if show:
-        plt.show()
-
-    to_be_grouped = df[["gender", "race", "age", "readmit_30_days"]].copy()
-    to_be_grouped.groupby(['race', 'gender', 'age'], observed=False).readmit_30_days.value_counts().unstack(
-        3).plot.barh()
-    plt.savefig(label_imbalance_dir() + 'li_race_gender_age.png')
-    if show:
-        plt.show()
-    plt.clf()
-
 
 
 def medical(show_counts_sf, show_pivot, show_train_test, show_coefficients,

@@ -53,6 +53,8 @@ def predictive_validity_dir():
 def label_imbalance_dir():
     return generated() + 'label_imbalance/'
 
+def sensitive_proxies_dir():
+    return generated() + 'sensitive_proxies/'
 
 def clean_correlation_dirs():
     try:
