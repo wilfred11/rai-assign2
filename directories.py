@@ -56,6 +56,9 @@ def label_imbalance_dir():
 def sensitive_proxies_dir():
     return generated() + 'sensitive_proxies/'
 
+def test_train_dir():
+    return generated() + 'test_train/'
+
 def clean_correlation_dirs():
     try:
         shutil.rmtree(correlation_dir())

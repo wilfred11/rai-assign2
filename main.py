@@ -14,7 +14,7 @@ pd.set_option("display.float_format", "{:.3f}".format)
 set_config(display="diagram")
 sns.set()
 
-do = 2
+do = 1
 if do == 1:
     medical(show_counts_sf=True, show_pivot=False,
             show_train_test=True, show_coefficients=False, show_metrics_before=True, show_metrics_after=True,

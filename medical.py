@@ -3,7 +3,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import (
@@ -21,7 +20,8 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 from fairlearn.postprocessing import ThresholdOptimizer
 from fairlearn.reductions import ExponentiatedGradient, TruePositiveRateParity
 
-from directories import generated, clean_dirs, generated_dir
+from datasets import prepare_test_train_datasets, resample_dataset, figures_test_train
+from directories import generated, clean_dirs, generated_dir, clean_specific_dir, test_train_dir
 
 pd.set_option("display.float_format", "{:.3f}".format)
 set_config(display="diagram")
@@ -57,7 +57,7 @@ def load_dataset():
                        'num_procedures', 'num_medications', 'number_diagnoses'}:
             categorical_values[col] = pd.Series(data[col].value_counts().index.values)
     categorical_values_df = pd.DataFrame(categorical_values).fillna('')
-    categorical_values_df.T
+    #categorical_values_df.T
 
     for col_name in categorical_features():
         data[col_name] = data[col_name].astype("category")
@@ -122,6 +122,7 @@ def medical(show_counts_sf, show_pivot, show_train_test, show_coefficients,
     X_train, X_test, Y_train, Y_test, A_train, A_test, df_train, df_test = prepare_test_train_datasets(df, random_seed)
     X_train_bal, Y_train_bal, A_train_bal = resample_dataset(X_train, Y_train, A_train)
 
+    clean_specific_dir(test_train_dir())
     if show_train_test:
         figures_test_train(A_train_bal, Y_train_bal, A_test, Y_test)
 
@@ -166,6 +167,10 @@ def medical(show_counts_sf, show_pivot, show_train_test, show_coefficients,
 
         #explore_eg_predictors(eg, X_test, Y_test, A_test)
 
+
+def graphs_test_train(A_train_bal):
+    sns.countplot(x="race", data=A_train_bal)
+    plt.title("Sensitive Attributes for Training Dataset")
 
 def coefficients(unmitigated_pipeline, columns, show=False):
     coef_series = pd.Series(data=unmitigated_pipeline.named_steps["logistic_regression"].coef_[0], index=columns)
@@ -329,86 +334,6 @@ def pivot(df, show=False):
     plt.clf()
 
     #print(pv)
-
-
-def prepare_test_train_datasets(df, random_seed):
-    target_variable = "readmit_30_days"
-    #demographic = ["race", "gender"]
-    sensitive = ["race", "gender"]
-    Y, A = df.loc[:, target_variable], df.loc[:, sensitive]
-    '''X = pd.get_dummies(df.drop(columns=[
-        "race",
-        "race_all",
-        "discharge_disposition_id",
-        "readmitted",
-        "readmit_binary",
-        "readmit_30_days"
-    ]))'''
-    X = pd.get_dummies(df.drop(columns=[
-        "race",
-        "readmit_binary",
-        "readmit_30_days"
-    ]))
-    print('xcols:', X.columns)
-
-    #random_seed = 445
-    #np.random.seed(random_seed)
-
-    X_train, X_test, Y_train, Y_test, A_train, A_test, df_train, df_test = train_test_split(
-        X,
-        Y,
-        A,
-        df,
-        test_size=0.50,
-        stratify=Y,
-        random_state=random_seed
-    )
-    return X_train, X_test, Y_train, Y_test, A_train, A_test, df_train, df_test
-
-
-def resample_dataset(X_train, Y_train, A_train):
-    negative_ids = Y_train[Y_train == 0].index
-    positive_ids = Y_train[Y_train == 1].index
-    balanced_ids = positive_ids.union(np.random.choice(a=negative_ids, size=len(positive_ids)))
-
-    X_train = X_train.loc[balanced_ids, :]
-    Y_train = Y_train.loc[balanced_ids]
-    A_train = A_train.loc[balanced_ids, :]
-    return X_train, Y_train, A_train
-
-
-def figures_test_train(A_train_bal, Y_train_bal, A_test, Y_test, show=False):
-    print('ftt', A_train_bal[['race', 'gender']].value_counts().reset_index(name='count'))
-    dfg = A_train_bal.groupby(by=["race", "gender"]).size()
-    #A_train_bal[['race', 'gender']].value_counts().reset_index(name='count').plot(kind='barh', )
-    dfg.plot(kind='barh')
-    plt.savefig(generated() + 'sa-train-bal.png')
-    if show:
-        plt.show()
-    plt.clf()
-
-    sns.countplot(x="race", data=A_train_bal)
-    plt.title("Sensitive Attributes for Training Dataset")
-    plt.savefig(generated() + 'sa-train.png')
-    if show:
-        plt.show()
-
-    sns.countplot(x=Y_train_bal)
-    plt.title("Target Label Histogram for Training Dataset")
-    plt.savefig(generated() + 'tl-histo-train.png')
-    if show:
-        plt.show()
-    sns.countplot(x="race", data=A_test)
-    plt.title("Sensitive Attributes for Testing Dataset")
-    plt.savefig(generated() + 'sa-test.png')
-    if show:
-        plt.show()
-    sns.countplot(x=Y_test)
-    plt.title("Target Label Histogram for Test Dataset")
-    plt.savefig(generated() + 'tl-histo-test.png')
-    if show:
-        plt.show()
-    plt.clf()
 
 
 def metrics(metrics_dict, sensitive_features, Y_test, Y_pred, df_test, use_log_reg, use_treshold, unmitigated):
