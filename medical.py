@@ -1,3 +1,6 @@
+from operator import add
+
+import matplotlib
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -21,7 +24,7 @@ from fairlearn.postprocessing import ThresholdOptimizer
 from fairlearn.reductions import ExponentiatedGradient, TruePositiveRateParity
 
 from datasets import prepare_test_train_datasets, resample_dataset, figures_test_train
-from directories import generated, clean_dirs, generated_dir, clean_specific_dir, test_train_dir
+from directories import generated, clean_dirs, generated_dir, clean_specific_dir, test_train_dir, unmitigated_dir
 
 pd.set_option("display.float_format", "{:.3f}".format)
 set_config(display="diagram")
@@ -80,7 +83,7 @@ def show_counts_sensitive_variables(df, show=False):
     plt.savefig(generated() + 'gender_counted.png')
     if show:
         plt.show()
-    dfg = df.groupby(by=["race", "gender", "readmit_30_days"]).size()
+    dfg = df.groupby(by=["race", "gender", "readmit_30_days"], observed=False).size()
     dfg.plot(kind='barh', title='Patients, grouped by race, gender and readmit_30_days, counted.')
     plt.savefig(generated() + 'patients_grouped_counted.png')
     if show:
@@ -100,7 +103,7 @@ def medical(show_counts_sf, show_pivot, show_train_test, show_coefficients,
     info(df)
 
     if show_counts_sf:
-        show_counts_sensitive_variables(df, True)
+        show_counts_sensitive_variables(df, False)
 
 
 
@@ -128,14 +131,16 @@ def medical(show_counts_sf, show_pivot, show_train_test, show_coefficients,
 
     if use_log_reg:
         Y_pred_proba, Y_pred, unmitigated_pipeline = train_model_lr(X_train_bal, Y_train_bal, X_test)
-        display_performance(Y_test, Y_pred_proba, Y_pred)
+        roc_curve_lr(Y_test, Y_pred_proba, Y_pred)
         if show_coefficients:
             coefficients(unmitigated_pipeline, X_test.columns)
+            coefficients1(unmitigated_pipeline, X_test.columns)
     else:
         Y_pred, unmitigated_pipeline = train_model_hg(X_train_bal, Y_train_bal, X_test)
         display_performance_hg(Y_test, Y_pred)
 
     if show_metrics_before:
+        clean_specific_dir(unmitigated_dir())
         metrics(metrics_dict, df_test[sensitive_features], Y_test, Y_pred, df_test, use_log_reg, False, True)
 
     to = get_threshold_optimizer(unmitigated_pipeline)
@@ -147,8 +152,6 @@ def medical(show_counts_sf, show_pivot, show_train_test, show_coefficients,
                 True)
 
     if use_log_reg:
-        #sample_weight1 = np.ones(len(Y_train_bal))
-        #sample_weight2 = sample_weight1 / len(Y_train_bal)
         estimator = unmitigated_pipeline.named_steps['logistic_regression']
 
         #eg = get_exponentiated_gradient(estimator)
@@ -174,16 +177,31 @@ def graphs_test_train(A_train_bal):
 
 def coefficients(unmitigated_pipeline, columns, show=False):
     coef_series = pd.Series(data=unmitigated_pipeline.named_steps["logistic_regression"].coef_[0], index=columns)
-    coef_series.sort_values().plot.barh(figsize=(4, 20), legend=False)
+    coef_series.sort_values().plot.bar(figsize=(80, 20), legend=False, fontsize=20)
     plt.savefig(generated_dir(True) + 'lr_coef.png')
     if show:
         plt.show()
-    plt.clf()
+    #plt.clf()
+
+def coefficients1(unmitigated_pipeline, columns, show=False):
+    odds = np.exp(unmitigated_pipeline.named_steps["logistic_regression"].coef_[0])
+    coefs = pd.DataFrame(odds, columns, columns=['coef']).sort_values(by='coef', ascending=False)
+    coefs.plot.bar(figsize=(80, 40), legend=False, fontsize=15)
+    plt.axhline(y=1, color='red', lw=.5)
+    #plt.axhline(y=1, color='r', linestyle='-')
+    #ax.axvline(1, color="red", linestyle="--", lw=2, label="")
+    plt.savefig(generated_dir(True) + 'lr_coef1.png')
+    if show:
+        plt.show()
 
 
-def display_performance(Y_test, Y_pred_proba, Y_pred, show=False):
-    fpr, tpr, threshold = roc_curve(Y_test, Y_pred_proba)
-    p = RocCurveDisplay(fpr=fpr, tpr=tpr)
+
+def roc_curve_lr(Y_test, Y_pred_proba, Y_pred, show=False):
+    print("display performance")
+    #fpr, tpr, threshold = roc_curve(Y_test, Y_pred_proba)
+    #p = RocCurveDisplay(fpr=fpr, tpr=tpr, plot_chance_level= True)
+    p = RocCurveDisplay.from_predictions(Y_test, Y_pred_proba, plot_chance_level=True)
+    plt.plot([0, 1], [0, 1], 'k--', label='')
     p.plot()
     if show:
         plt.show()
@@ -194,8 +212,10 @@ def display_performance(Y_test, Y_pred_proba, Y_pred, show=False):
 
 def display_performance_hg(Y_test, Y_pred, show=False):
     fpr, tpr, threshold = roc_curve(Y_test, Y_pred)
-    p = RocCurveDisplay(fpr=fpr, tpr=tpr)
+    p = RocCurveDisplay(fpr=fpr, tpr=tpr, plot_chance_level= True)
+    plt.plot([0, 1], [0, 1], 'k--', label='')
     p.plot()
+
     if show:
         plt.show()
     plt.savefig(generated_dir(False) + 'hg_roc_curve.png')
@@ -206,12 +226,11 @@ def display_performance_hg(Y_test, Y_pred, show=False):
 def train_model_lr(X_train_bal, Y_train_bal, X_test):
     unmitigated_pipeline = Pipeline(steps=[
         ("preprocessing", StandardScaler()),
-        ("logistic_regression", LogisticRegression(max_iter=1000))
+        ("logistic_regression", LogisticRegression(max_iter=5000))
 
     ])
 
     unmitigated_pipeline.fit(X_train_bal, Y_train_bal)
-
     Y_pred_proba = unmitigated_pipeline.predict_proba(X_test)[:, 1]
     Y_pred = unmitigated_pipeline.predict(X_test)
     return Y_pred_proba, Y_pred, unmitigated_pipeline
@@ -331,18 +350,20 @@ def pivot(df, show=False):
     if show:
         plt.show()
 
-    plt.clf()
+    #plt.clf()
 
     #print(pv)
 
 
 def metrics(metrics_dict, sensitive_features, Y_test, Y_pred, df_test, use_log_reg, use_treshold, unmitigated):
+
     if unmitigated:
         filename_part = 'unm_'
     elif use_treshold:
         filename_part = 'mit_to_'
     elif not use_treshold:
         filename_part = 'mit_eg_'
+    print("metrics_"+ filename_part)
 
     metricframe_unmitigated = MetricFrame(metrics=metrics_dict,
                                           y_true=Y_test,
@@ -350,7 +371,10 @@ def metrics(metrics_dict, sensitive_features, Y_test, Y_pred, df_test, use_log_r
                                           sensitive_features=sensitive_features)
 
     # The disaggregated metrics are stored in a pandas Series mf1.by_group:
+
     print(metricframe_unmitigated.by_group)
+    metricframe_unmitigated.by_group.round(2).to_csv(unmitigated_dir()+"unmitigated_selection_rate.csv")
+
     print(metricframe_unmitigated.difference())
 
     metrics = pd.DataFrame({'difference': metricframe_unmitigated.difference(),

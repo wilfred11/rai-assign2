@@ -17,8 +17,8 @@ sns.set()
 do = 1
 if do == 1:
     medical(show_counts_sf=True, show_pivot=False,
-            show_train_test=True, show_coefficients=False, show_metrics_before=True, show_metrics_after=True,
-            use_log_reg=False)
+            show_train_test=True, show_coefficients=True, show_metrics_before=True, show_metrics_after=True,
+            use_log_reg=True)
 
 if do == 2:
     correlations()

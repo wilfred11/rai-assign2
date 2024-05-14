@@ -50,21 +50,15 @@ def resample_dataset(X_train, Y_train, A_train):
 def figures_test_train(A_train_bal, Y_train_bal, A_test, Y_test, show=False):
     plt.rcParams["figure.figsize"] = (20, 10)
     figures_(A_test, "A_test", show)
-    figures_( A_train_bal, " A_train_bal", show)
-
-    # A_train_bal_g = A_train_bal.group_by("race", "gender")
-
+    figures_( A_train_bal, "A_train_bal", show)
 
     sns.countplot(x=Y_train_bal)
-    #plt.title("Target Label Histogram for Training Dataset")
-    plt.savefig(test_train_dir() + 'tl-histo-train.png')
+    plt.savefig(test_train_dir() + 'y_train_bal_count.png')
     if show:
         plt.show()
 
-
     sns.countplot(x=Y_test)
-    #plt.title("Target Label Histogram for Test Dataset")
-    plt.savefig(test_train_dir() + 'tl-histo-test.png')
+    plt.savefig(test_train_dir() + 'y_test_count.png')
     if show:
         plt.show()
     plt.clf()
@@ -83,7 +77,7 @@ def figures_(data, output_name, show=False):
     if show:
         plt.show()
 
-    dfg = data.groupby(['race', 'gender']).size().unstack(level=1)
+    dfg = data.groupby(['race', 'gender'], observed=False).size().unstack(level=1)
 
     #dfg = data.groupby(by=["race", "gender"]).value_counts()
     dfg.plot(kind='barh')

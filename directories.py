@@ -59,6 +59,9 @@ def sensitive_proxies_dir():
 def test_train_dir():
     return generated() + 'test_train/'
 
+def unmitigated_dir():
+    return generated() + 'unmitigated/'
+
 def clean_correlation_dirs():
     try:
         shutil.rmtree(correlation_dir())
