@@ -71,6 +71,9 @@ def mitigated_to_dir():
 def mitigated_eg_dir():
     return generated() + 'mitigated_eg/'
 
+def shap_dir():
+    return generated() + 'shap/'
+
 def clean_correlation_dirs():
     try:
         shutil.rmtree(correlation_dir())

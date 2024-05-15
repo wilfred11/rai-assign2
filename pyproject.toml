@@ -14,6 +14,7 @@ pandas = "^2.2.2"
 seaborn = "^0.13.2"
 pingouin = "^0.5.4"
 openpyxl = "^3.1.2"
+shap = "^0.45.1"
 
 
 [build-system]

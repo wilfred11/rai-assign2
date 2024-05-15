@@ -4,7 +4,7 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 from sklearn.model_selection import train_test_split
 from directories import generated, test_train_dir
-from medical import delete_rows, categorical_features
+from settings import categorical_features
 
 
 def prepare_test_train_datasets(df, random_seed):
@@ -118,3 +118,9 @@ def load_dataset():
     for col_name in categorical_features():
         data[col_name] = data[col_name].astype("category")
     return data
+
+
+def delete_rows(df):
+    df.drop(df[df['gender'] == 'Unknown/Invalid'].index, inplace=True)
+    print('gender unique:', df.gender.unique())
+    return df

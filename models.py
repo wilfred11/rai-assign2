@@ -62,7 +62,7 @@ def train_model_lr(X_train_bal, Y_train_bal, X_test):
 
     ])
 
-    unmitigated_pipeline.fit(X_train_bal, Y_train_bal)
+    model = unmitigated_pipeline.fit(X_train_bal, Y_train_bal)
     Y_pred_proba = unmitigated_pipeline.predict_proba(X_test)[:, 1]
     Y_pred = unmitigated_pipeline.predict(X_test)
     return Y_pred_proba, Y_pred, unmitigated_pipeline

@@ -2,6 +2,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import shap
+from shap import Explainer, plots, summary_plot
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     balanced_accuracy_score)
 from sklearn import set_config
@@ -12,12 +15,12 @@ from fairlearn.metrics import (
     count,
 )
 from fairlearn.postprocessing import plot_threshold_optimizer
-
 from datasets import prepare_test_train_datasets, resample_dataset, figures_test_train, load_dataset
 from directories import generated, clean_dirs, clean_specific_dir, test_train_dir, unmitigated_dir, \
-    mitigated_to_dir, mitigated_eg_dir
+    mitigated_to_dir, mitigated_eg_dir, shap_dir
 from mitigators import get_threshold_optimizer, get_exponentiated_gradient1
-from models import coefficients, coefficients_odds, roc_curve_lr, display_performance_hg, train_model_lr, train_model_hg
+from models import coefficients_odds, roc_curve_lr, display_performance_hg, train_model_lr, train_model_hg
+from settings import categorical_features
 
 pd.set_option("display.float_format", "{:.3f}".format)
 set_config(display="diagram")
@@ -26,12 +29,6 @@ sns.set()
 
 # https://github.com/fairlearn/talks/blob/main/2022_pycon/pycon-2022-students.ipynb
 # https://fairlearn.org/v0.10/auto_examples/plot_grid_search_census.html
-
-
-def delete_rows(df):
-    df.drop(df[df['gender'] == 'Unknown/Invalid'].index, inplace=True)
-    print('gender unique:', df.gender.unique())
-    return df
 
 
 def show_counts_sensitive_variables(df, show=False):
@@ -51,6 +48,26 @@ def show_counts_sensitive_variables(df, show=False):
         plt.show()
     plt.clf()
 
+
+
+def shap():
+    clean_specific_dir(shap_dir())
+    random_seed = 445
+    np.random.seed(random_seed)
+    df = load_dataset()
+    info(df)
+    sensitive_features = ['race', 'gender']
+    X_train, X_test, Y_train, Y_test, A_train, A_test, df_train, df_test = prepare_test_train_datasets(df, random_seed)
+    X_train_bal, Y_train_bal, A_train_bal = resample_dataset(X_train, Y_train, A_train)
+
+    Y_pred_proba, Y_pred, unmitigated_pipeline = train_model_lr(X_train_bal, Y_train_bal, X_test)
+    model = unmitigated_pipeline.named_steps['logistic_regression']
+    model_fitted = model.fit(X_train_bal, Y_train_bal)
+
+    explainer = Explainer(model, X_train_bal, feature_names=X_train_bal.columns.to_list())
+    shap_values = explainer(X_test)
+    plots.waterfall(shap_values[0])
+    summary_plot(shap_values, X_test, plot_type="bar")
 
 def medical(show_counts_sf, show_pivot, show_train_test, show_coefficients,
             show_metrics_before,
@@ -130,17 +147,6 @@ def graphs_test_train(A_train_bal):
     plt.title("Sensitive Attributes for Training Dataset")
 
 
-def numeric_and_binary_features():
-    return ['time_in_hospital', 'num_lab_procedures', 'num_procedures', 'num_medications', 'number_diagnoses',
-            'medicare', 'medicaid', 'had_emergency', 'had_inpatient_days', 'had_outpatient_days', 'readmit_binary',
-            'diabetesMed']
-
-
-def categorical_features():
-    return ["race", "gender", "age", "admission_source_id", "medical_specialty", "primary_diagnosis", "max_glu_serum",
-            "A1Cresult", "insulin", "change"]
-
-
 def denominalize(df):
     print('denominalize')
     df_ = df.copy()
@@ -179,29 +185,6 @@ def info(df):
     print(df.A1Cresult.unique)
     df = df.drop_duplicates(keep='first')
     print('number of duplicates:', df.duplicated(subset=None, keep='first').sum())
-    #summary(df).sort_values(by='Uniques', ascending=False)[:20]
-    #print(summary(df).sort_values(by='Nulls', ascending=False))
-
-
-def summary(df, pred=None):
-    obs = df.shape[0]
-    Types = df.dtypes
-    Counts = df.apply(lambda x: x.count())
-    Min = df.min()
-    Max = df.max()
-    Uniques = df.apply(lambda x: x.unique().shape[0])
-    Nulls = df.apply(lambda x: x.isnull().sum())
-    print('Data shape:', df.shape)
-
-    if pred is None:
-        cols = ['Types', 'Counts', 'Uniques', 'Nulls', 'Min', 'Max']
-        str = pd.concat([Types, Counts, Uniques, Nulls, Min, Max], axis=1, sort=True)
-
-    str.columns = cols
-    print('___________________________\nData Types:')
-    print(str.Types.value_counts())
-    print('___________________________')
-    return str
 
 
 def pivot(df, show=False):
