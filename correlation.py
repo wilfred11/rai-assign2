@@ -2,7 +2,8 @@ import pandas as pd
 import seaborn as sns
 from matplotlib import pyplot as plt
 from directories import clean_dirs, correlation_dir, clean_correlation_dirs
-from medical import load_dataset, denominalize
+from medical import denominalize
+from datasets import load_dataset
 
 
 def correlations():

@@ -4,6 +4,8 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 from sklearn.model_selection import train_test_split
 from directories import generated, test_train_dir
+from medical import delete_rows, categorical_features
+
 
 def prepare_test_train_datasets(df, random_seed):
     print('prepare test train datasets')
@@ -78,10 +80,41 @@ def figures_(data, output_name, show=False):
         plt.show()
 
     dfg = data.groupby(['race', 'gender'], observed=False).size().unstack(level=1)
-
-    #dfg = data.groupby(by=["race", "gender"]).value_counts()
     dfg.plot(kind='barh')
     plt.savefig(test_train_dir() + output_name + '_grouped_counted.png')
     if show:
         plt.show()
     plt.clf()
+
+
+def load_dataset():
+    data = pd.read_csv(
+        "https://raw.githubusercontent.com/fairlearn/talks/main/2021_scipy_tutorial/data/diabetic_preprocessed.csv")
+
+    print(data.head())
+
+    data.to_csv('./data/diabetic.csv', sep=';')
+
+    data = data.drop(columns=[
+        "discharge_disposition_id",
+        "readmitted",
+        #"readmit_30_days"
+    ])
+
+    data = delete_rows(data)
+    #data["race_all"] = data["race"].copy()
+    data["race"] = data["race"].replace({"Asian": "Other", "Hispanic": "Other"})
+    data["diabetesMed"] = data["diabetesMed"].replace({"Yes": True, "No": False})
+
+    # Show the values of all binary and categorical features
+    categorical_values = {}
+    for col in data:
+        if col not in {'time_in_hospital', 'num_lab_procedures',
+                       'num_procedures', 'num_medications', 'number_diagnoses'}:
+            categorical_values[col] = pd.Series(data[col].value_counts().index.values)
+    categorical_values_df = pd.DataFrame(categorical_values).fillna('')
+    #categorical_values_df.T
+
+    for col_name in categorical_features():
+        data[col_name] = data[col_name].astype("category")
+    return data
