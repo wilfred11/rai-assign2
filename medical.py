@@ -24,7 +24,8 @@ from fairlearn.postprocessing import ThresholdOptimizer
 from fairlearn.reductions import ExponentiatedGradient, TruePositiveRateParity
 
 from datasets import prepare_test_train_datasets, resample_dataset, figures_test_train
-from directories import generated, clean_dirs, generated_dir, clean_specific_dir, test_train_dir, unmitigated_dir
+from directories import generated, clean_dirs, generated_dir, clean_specific_dir, test_train_dir, unmitigated_dir, \
+    mitigated_dir, mitigated_to_dir, mitigated_eg_dir
 
 pd.set_option("display.float_format", "{:.3f}".format)
 set_config(display="diagram")
@@ -131,13 +132,13 @@ def medical(show_counts_sf, show_pivot, show_train_test, show_coefficients,
 
     if use_log_reg:
         Y_pred_proba, Y_pred, unmitigated_pipeline = train_model_lr(X_train_bal, Y_train_bal, X_test)
-        roc_curve_lr(Y_test, Y_pred_proba, Y_pred)
+        roc_curve_lr(Y_test, Y_pred_proba, Y_pred, False)
         if show_coefficients:
-            coefficients(unmitigated_pipeline, X_test.columns)
-            coefficients1(unmitigated_pipeline, X_test.columns)
+            coefficients(unmitigated_pipeline, X_test.columns, False)
+            coefficients1(unmitigated_pipeline, X_test.columns, False)
     else:
         Y_pred, unmitigated_pipeline = train_model_hg(X_train_bal, Y_train_bal, X_test)
-        display_performance_hg(Y_test, Y_pred)
+        display_performance_hg(Y_test, Y_pred, False)
 
     if show_metrics_before:
         clean_specific_dir(unmitigated_dir())
@@ -148,8 +149,7 @@ def medical(show_counts_sf, show_pivot, show_train_test, show_coefficients,
     Y_pred_postprocess = to.predict(X_test, sensitive_features=A_test)
 
     if show_metrics_after:
-        metrics(metrics_dict, df_test[sensitive_features], Y_test, Y_pred_postprocess, df_test, use_log_reg, True,
-                True)
+        metrics(metrics_dict, df_test[sensitive_features], Y_test, Y_pred_postprocess, df_test, use_log_reg, True,False)
 
     if use_log_reg:
         estimator = unmitigated_pipeline.named_steps['logistic_regression']
@@ -166,7 +166,7 @@ def medical(show_counts_sf, show_pivot, show_train_test, show_coefficients,
 
         if show_metrics_after:
             metrics(metrics_dict, df_test[sensitive_features], Y_test, Y_pred_reductions, df_test, use_log_reg, False,
-                    True)
+                    False)
 
         #explore_eg_predictors(eg, X_test, Y_test, A_test)
 
@@ -202,7 +202,7 @@ def roc_curve_lr(Y_test, Y_pred_proba, Y_pred, show=False):
     #p = RocCurveDisplay(fpr=fpr, tpr=tpr, plot_chance_level= True)
     p = RocCurveDisplay.from_predictions(Y_test, Y_pred_proba, plot_chance_level=True)
     plt.plot([0, 1], [0, 1], 'k--', label='')
-    p.plot()
+    #p.plot()
     if show:
         plt.show()
     plt.savefig(generated_dir(True) + 'lr_roc_curve.png')
@@ -214,7 +214,7 @@ def display_performance_hg(Y_test, Y_pred, show=False):
     fpr, tpr, threshold = roc_curve(Y_test, Y_pred)
     p = RocCurveDisplay(fpr=fpr, tpr=tpr, plot_chance_level= True)
     plt.plot([0, 1], [0, 1], 'k--', label='')
-    p.plot()
+    #p.plot()
 
     if show:
         plt.show()
@@ -356,61 +356,45 @@ def pivot(df, show=False):
 
 
 def metrics(metrics_dict, sensitive_features, Y_test, Y_pred, df_test, use_log_reg, use_treshold, unmitigated):
-
     if unmitigated:
         filename_part = 'unm_'
+        dir = unmitigated_dir()
     elif use_treshold:
-        filename_part = 'mit_to_'
+        if use_log_reg:
+            filename_part = 'mit_to_lr_'
+        else:
+            filename_part = 'mit_to_hg_'
+        dir = mitigated_to_dir()
     elif not use_treshold:
-        filename_part = 'mit_eg_'
-    print("metrics_"+ filename_part)
+        if use_log_reg:
+            filename_part = 'mit_eg_lr_'
+        else:
+            filename_part = 'mit_eg_hg_'
+        dir = mitigated_eg_dir()
+    #print("metrics_"+ filename_part)
+    clean_specific_dir(dir)
 
-    metricframe_unmitigated = MetricFrame(metrics=metrics_dict,
+    metricframe_ = MetricFrame(metrics=metrics_dict,
                                           y_true=Y_test,
                                           y_pred=Y_pred,
                                           sensitive_features=sensitive_features)
 
-    # The disaggregated metrics are stored in a pandas Series mf1.by_group:
+    metricframe_.by_group.round(2).to_csv(dir+ filename_part+"metrics.csv")
 
-    print(metricframe_unmitigated.by_group)
-    metricframe_unmitigated.by_group.round(2).to_csv(unmitigated_dir()+"unmitigated_selection_rate.csv")
-
-    print(metricframe_unmitigated.difference())
-
-    metrics = pd.DataFrame({'difference': metricframe_unmitigated.difference(),
-                            'ratio': metricframe_unmitigated.ratio(),
-                            'group_min': metricframe_unmitigated.group_min(),
-                            'group_max': metricframe_unmitigated.group_max()
+    metrics_aggregated = pd.DataFrame({'difference': metricframe_.difference(),
+                            'ratio': metricframe_.ratio(),
+                            'group_min': metricframe_.group_min(),
+                            'group_max': metricframe_.group_max()
                             }).T
+    metrics_aggregated.astype(float).round(2).to_csv(dir +filename_part +"metrics_agg.csv")
 
-    print(metrics)
-    metrics.to_excel(generated_dir(use_log_reg) + filename_part + 'sf_metrics.xlsx')
-    metrics.to_pickle(generated_dir(use_log_reg) + filename_part + 'sf_metrics.pkl')
+    #metrics_.to_excel(generated_dir(use_log_reg) + filename_part + 'sf_metrics.xlsx')
+    #metrics_.to_pickle(generated_dir(use_log_reg) + filename_part + 'sf_metrics.pkl')
 
-    metricframe_unmitigated.by_group.plot.bar(subplots=True, layout=[2, 2], figsize=(12, 12),
+    metricframe_.by_group.plot.bar(subplots=True, layout=[2, 2], figsize=(12, 12),
                                               legend=False, rot=90, position=.5)
-    plt.savefig(generated_dir(use_log_reg) + filename_part + 'mf.png')
+    plt.savefig(dir + filename_part + 'mf.png')
     plt.show()
-
-    '''metricframe_unmitigated.by_group.plot(
-        kind="bar",
-        ylim=[0, 1],
-        subplots=True,
-        layout=[1, 4],
-        legend=False,
-        figsize=[12, 12],
-        title="Show all metrics with assigned y-axis range",
-    )
-
-    plt.show()'''
-
-    '''metric_frame.by_group.plot.bar(
-        subplots=True,
-        layout=[3, 3],
-        legend=False,
-        figsize=[12, 8],
-        title="Show all metrics",
-    )'''
 
 
 def get_threshold_optimizer(unmitigated_pipeline):

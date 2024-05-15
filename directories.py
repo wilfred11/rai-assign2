@@ -62,6 +62,15 @@ def test_train_dir():
 def unmitigated_dir():
     return generated() + 'unmitigated/'
 
+def mitigated_dir():
+    return generated() + 'mitigated/'
+
+def mitigated_to_dir():
+    return generated() + 'mitigated_to/'
+
+def mitigated_eg_dir():
+    return generated() + 'mitigated_eg/'
+
 def clean_correlation_dirs():
     try:
         shutil.rmtree(correlation_dir())
