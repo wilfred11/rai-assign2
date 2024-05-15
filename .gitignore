@@ -1,0 +1,4 @@
+/generated/**
+/data/**
+/poetry.lock
+/.idea/**
