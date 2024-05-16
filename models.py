@@ -62,10 +62,18 @@ def train_model_lr(X_train_bal, Y_train_bal, X_test):
 
     ])
 
-    model = unmitigated_pipeline.fit(X_train_bal, Y_train_bal)
+    unmitigated_pipeline.fit(X_train_bal, Y_train_bal)
     Y_pred_proba = unmitigated_pipeline.predict_proba(X_test)[:, 1]
     Y_pred = unmitigated_pipeline.predict(X_test)
     return Y_pred_proba, Y_pred, unmitigated_pipeline
+
+def train_model_lr_(X_train_bal, Y_train_bal):
+    unmitigated_pipeline = Pipeline(steps=[
+        ("preprocessing", StandardScaler()),
+        ("logistic_regression", LogisticRegression(max_iter=5000))
+
+    ])
+    return unmitigated_pipeline.fit(X_train_bal, Y_train_bal)
 
 
 def train_model_hg(X_train_bal, Y_train_bal, X_test):

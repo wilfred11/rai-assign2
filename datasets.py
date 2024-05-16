@@ -8,6 +8,7 @@ from settings import categorical_features
 
 
 def prepare_test_train_datasets(df, random_seed):
+
     print('prepare test train datasets')
     target_variable = "readmit_30_days"
     #demographic = ["race", "gender"]
@@ -27,6 +28,7 @@ def prepare_test_train_datasets(df, random_seed):
         "readmit_binary",
         "readmit_30_days"
     ]))
+    X.replace({False: 0, True: 1}, inplace=True)
     print('xcols:', X.columns)
     X_train, X_test, Y_train, Y_test, A_train, A_test, df_train, df_test = train_test_split(
         X,
@@ -47,6 +49,9 @@ def resample_dataset(X_train, Y_train, A_train):
     X_train = X_train.loc[balanced_ids, :]
     Y_train = Y_train.loc[balanced_ids]
     A_train = A_train.loc[balanced_ids, :]
+    print('resample x cols:', X_train.columns)
+    #print('resample y cols:', Y_train.columns)
+    pd.DataFrame(Y_train, columns=["label"])
     return X_train, Y_train, A_train
 
 def figures_test_train(A_train_bal, Y_train_bal, A_test, Y_test, show=False):
@@ -94,6 +99,9 @@ def load_dataset():
     print(data.head())
 
     data.to_csv('./data/diabetic.csv', sep=';')
+
+    data = data.drop_duplicates(keep='first')
+    print('number of duplicates:', data.duplicated(subset=None, keep='first').sum())
 
     data = data.drop(columns=[
         "discharge_disposition_id",

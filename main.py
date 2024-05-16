@@ -1,5 +1,7 @@
+import numpy as np
 import pandas as pd
 import seaborn as sns
+from shap import initjs
 from sklearn import set_config
 from correlation import correlations
 from directories import clean_specific_dir, predictive_validity_dir, label_imbalance_dir, sensitive_proxies_dir
@@ -14,6 +16,13 @@ from proxies_sensitive_features import proxies_for_sensitive_features
 pd.set_option("display.float_format", "{:.3f}".format)
 set_config(display="diagram")
 sns.set()
+
+
+#initjs()
+
+random_seed = 445
+np.random.seed(random_seed)
+
 
 do = 6
 if do == 1:
@@ -40,4 +49,4 @@ if do == 5:
     proxies_for_sensitive_features(df, show=True)
 
 if do == 6:
-    shap()
+    shap(random_seed)
