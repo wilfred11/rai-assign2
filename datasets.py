@@ -8,8 +8,8 @@ from settings import categorical_features
 
 
 def prepare_test_train_datasets(df, random_seed):
-
     print('prepare test train datasets')
+    print('random seed:', random_seed)
     target_variable = "readmit_30_days"
     #demographic = ["race", "gender"]
     sensitive = ["race", "gender"]
@@ -22,6 +22,9 @@ def prepare_test_train_datasets(df, random_seed):
         "readmit_binary",
         "readmit_30_days"
     ]))'''
+
+    #print('y index:', )
+
     X = pd.get_dummies(df.drop(columns=[
         "race",
         "gender",
@@ -39,6 +42,7 @@ def prepare_test_train_datasets(df, random_seed):
         stratify=Y,
         random_state=random_seed
     )
+    print('y_test:', Y_test)
     return X_train, X_test, Y_train, Y_test, A_train, A_test, df_train, df_test
 
 def resample_dataset(X_train, Y_train, A_train):

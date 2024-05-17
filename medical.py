@@ -24,60 +24,46 @@ from settings import categorical_features, metrics_dict, sensitive_features
 def shap(random_seed):
     clean_specific_dir(shap_dir())
     df = load_dataset()
-
     X_train, X_test, Y_train, Y_test, A_train, A_test, df_train, df_test = prepare_test_train_datasets(df, random_seed)
     X_train_bal, Y_train_bal, A_train_bal = resample_dataset(X_train, Y_train, A_train)
-
     unmitigated_pipeline = train_model_lr_(X_train_bal, Y_train_bal)
-    #Y_pred_proba = unmitigated_pipeline.predict_proba(X_test)[:, 1]
-    #print('X_test cols:', X_test.columns )
-    #Y_test_pred = unmitigated_pipeline.predict(X_test)
     model = unmitigated_pipeline.named_steps['logistic_regression']
-
-    model.fit(X_train_bal, Y_train_bal)
-
-    Y_test_pred=model.predict(X_test)
-    print('len ytestpred:', len(Y_test_pred))
-    print('len ytest:', len(Y_test))
-    #print('pred:', Y_test_pred.count(1))
-    '''plt.scatter(Y_test, Y_test_pred)
-    plt.plot()
-    plt.show()'''
-
-    plt.scatter(Y_test, Y_test_pred, )
-    plt.xlabel('Actual Petal Width')
-    plt.ylabel('Predicted Petal Width')
-    plt.title('Actual vs Predicted Petal Width')
-    plt.show()
-
-
-    model = unmitigated_pipeline.named_steps['logistic_regression']
-
     explainer = LinearExplainer(model, X_train_bal, feature_names=X_train_bal.columns.to_list())
     shap_values = explainer(X_test)
+    shap_plots(shap_values, X_test, Y_test, unmitigated_pipeline)
+
+def shap_plots(shap_values, X_test, Y_test, unmitigated_pipeline):
+    Y_test_list = Y_test.to_list()
+    Y_test_pred_proba = (unmitigated_pipeline.predict_proba(X_test)[:, 1] >= 0.5).astype(int)
+
+    first_instance_recommended = Y_test_list.index(1)
+    print("y_test value:", Y_test_list[first_instance_recommended])
+    print("Y_test_pred_proba:", Y_test_pred_proba[first_instance_recommended])
+    first_instance_not_recommended = Y_test_list.index(0)
+    print("Y_test value:", Y_test_list[first_instance_not_recommended])
+    print("Y_test_pred_proba:", Y_test_pred_proba[first_instance_not_recommended])
 
     plt.subplots_adjust(left=0.46)
-    plots.waterfall(shap_values[0], show=False, max_display=11)
+    plots.waterfall(shap_values[first_instance_recommended], show=False, max_display=11)
+    plt.savefig(shap_dir() + "shap_waterfall_1.png")
+    plt.clf()
+
+    plt.subplots_adjust(left=0.46)
+    plots.waterfall(shap_values[first_instance_not_recommended], show=False, max_display=11)
     plt.savefig(shap_dir() + "shap_waterfall_0.png")
     plt.clf()
 
-    #plt.subplots_adjust(right=0.895, left=0.422, wspace = 0.2  )
+    # plt.subplots_adjust(right=0.895, left=0.422, wspace = 0.2  )
     summary_plot(shap_values, X_test, plot_type="bar", show=True)
-    #plt.savefig(shap_dir() + "shap_summary.png")
-    #plt.clf()
+    # plt.savefig(shap_dir() + "shap_summary.png")
+    # plt.clf()
 
-    #plt.subplots_adjust(left=0.16, right=1.97)
+    # plt.subplots_adjust(left=0.16, right=1.97)
     plots.beeswarm(shap_values, max_display=20, show=True)
-    #plt.figure().set_figwidth(10)
-    #plt.figure(figsize=(10,30))
-    #plt.savefig(shap_dir()+"shap_beeswarm.png")
+    # plt.figure().set_figwidth(10)
+    # plt.figure(figsize=(10,30))
+    # plt.savefig(shap_dir()+"shap_beeswarm.png")
     plt.clf()
-
-    #plots.scatter(shap_values[:, "time_in_hospital"], color=shap_values)
-
-    #plots.scatter(shap_values[:, "RM"], color=shap_values)
-
-
 
 
 def medical(show_counts_sf, show_pivot, show_train_test, show_coefficients,

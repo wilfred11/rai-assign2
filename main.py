@@ -20,7 +20,7 @@ sns.set()
 
 #initjs()
 
-random_seed = 445
+random_seed = 422
 np.random.seed(random_seed)
 
 
