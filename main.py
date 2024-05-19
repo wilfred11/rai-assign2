@@ -24,7 +24,7 @@ random_seed = 422
 np.random.seed(random_seed)
 
 
-do = 7
+do = 1
 if do == 1:
     medical(show_counts_sf=True, show_pivot=False,
             show_train_test=True, show_coefficients=True, show_metrics_before=True, show_metrics_after=True,

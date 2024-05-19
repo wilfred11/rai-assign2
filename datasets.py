@@ -173,11 +173,11 @@ def load_dataset():
 
     # Show the values of all binary and categorical features
     categorical_values = {}
-    for col in data:
+    '''for col in data:
         if col not in {'time_in_hospital', 'num_lab_procedures',
                        'num_procedures', 'num_medications', 'number_diagnoses'}:
-            categorical_values[col] = pd.Series(data[col].value_counts().index.values)
-    categorical_values_df = pd.DataFrame(categorical_values).fillna('')
+            categorical_values[col] = pd.Series(data[col].value_counts().index.values)'''
+    #categorical_values_df = pd.DataFrame(categorical_values).fillna('')
     #categorical_values_df.T
 
     for col_name in categorical_features():

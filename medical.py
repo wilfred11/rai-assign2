@@ -22,7 +22,8 @@ from directories import generated, clean_dirs, clean_specific_dir, test_train_di
 from mitigators import get_threshold_optimizer, get_exponentiated_gradient1
 from models import coefficients_odds, roc_curve_lr, display_performance_hg, train_model_lr, train_model_hg, \
     train_model_lr_
-from settings import categorical_features, metrics_dict, sensitive_features, binary_features, numeric_features, cat_features
+from settings import categorical_features, binary_features, numeric_features, \
+    cat_features, sensitive_features_, metrics_dict_
 
 
 # https://github.com/fairlearn/talks/blob/main/2022_pycon/pycon-2022-students.ipynb
@@ -205,9 +206,9 @@ def medical(show_counts_sf, show_pivot, show_train_test, show_coefficients,
     if show_counts_sf:
         show_counts_sensitive_variables(df, False)
 
-    sensitive_features = sensitive_features()
+    sensitive_features = sensitive_features_()
 
-    metrics_dict = metrics_dict()
+    metrics_dict = metrics_dict_()
 
     #if show_pivot:
     #    pivot(df, False)
@@ -251,10 +252,7 @@ def medical(show_counts_sf, show_pivot, show_train_test, show_coefficients,
         Y_pred_reductions = eg.predict(X_test, random_state=random_seed)
 
         if show_metrics_after:
-            metrics(metrics_dict, df_test[sensitive_features], Y_test, Y_pred_reductions, use_log_reg, False,
-                    False)
-
-        #explore_eg_predictors(eg, X_test, Y_test, A_test)
+            metrics(metrics_dict, df_test[sensitive_features], Y_test, Y_pred_reductions, use_log_reg, False,False)
 
 def do_lr(df, random_seed, do_train_test):
     X_train, X_test, Y_train, Y_test, A_train, A_test, df_train, df_test = prepare_test_train_datasets(df, random_seed)
@@ -345,12 +343,4 @@ def pivot(df, show=False):
     #print(pv)
 
 
-def explore_eg_predictors(eg, X_test, Y_test, A_test):
-    pass
-    '''predictors = eg.predictors_
-    print(predictors)
 
-    sweep_preds = [clf.predict(X_test) for clf in predictors]
-    balanced_error_sweep = [1 - balanced_accuracy_score(Y_test, Y_sweep) for Y_sweep in sweep_preds]
-    fnr_diff_sweep = [false_negative_rate(Y_test, Y_sweep, sensitive_features=A_test).difference() for Y_sweep in
-                      sweep_preds]'''

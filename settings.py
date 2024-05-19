@@ -27,11 +27,11 @@ def categorical_features_nosensitive():
             "A1Cresult", "insulin", "change", 'diabetesMed']
 
 
-def sensitive_features():
+def sensitive_features_():
     return ['race', 'gender']
 
 
-def metrics_dict():
+def metrics_dict_():
     return {
         "selection_rate": selection_rate,
         "false_negative_rate": false_negative_rate,
