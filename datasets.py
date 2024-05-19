@@ -7,7 +7,7 @@ from directories import generated, test_train_dir
 from settings import categorical_features
 
 
-def prepare_test_train_datasets(df, random_seed):
+def prepare_test_train_datasets(df, random_seed, get_dummies=True):
     print('prepare test train datasets')
     print('random seed:', random_seed)
     target_variable = "readmit_30_days"
@@ -25,12 +25,20 @@ def prepare_test_train_datasets(df, random_seed):
 
     #print('y index:', )
 
-    X = pd.get_dummies(df.drop(columns=[
-        "race",
-        "gender",
-        "readmit_binary",
-        "readmit_30_days"
-    ]))
+    if get_dummies:
+        X = pd.get_dummies(df.drop(columns=[
+            "race",
+            "gender",
+            "readmit_binary",
+            "readmit_30_days"
+        ]))
+    else:
+        X = df.drop(columns=[
+            "race",
+            "gender",
+            "readmit_binary",
+            "readmit_30_days"
+        ])
     X.replace({False: 0, True: 1}, inplace=True)
     print('xcols:', X.columns)
     X_train, X_test, Y_train, Y_test, A_train, A_test, df_train, df_test = train_test_split(
@@ -44,6 +52,48 @@ def prepare_test_train_datasets(df, random_seed):
     )
     print('y_test:', Y_test)
     return X_train, X_test, Y_train, Y_test, A_train, A_test, df_train, df_test
+
+def convert_to_lime_format1(X, categorical_names, col_names=None, invert=False):
+    """Converts data with categorical values as string into the right format
+    for LIME, with categorical values as integers labels.
+
+    It takes categorical_names, the same dictionary that has to be passed
+    to LIME to ensure consistency.
+
+    col_names and invert allow to rebuild the original dataFrame from
+    a numpy array in LIME format to be passed to a Pipeline or sklearn
+    OneHotEncoder
+    """
+
+    # If the data isn't a dataframe, we need to be able to build it
+    #print('x.ocls', X.columns)
+    #print('len cate names:', len(categorical_names))
+    #print('len_col: ',len(X.columns.to_list()))
+    if not isinstance(X, pd.DataFrame):
+        X_lime = pd.DataFrame(X, columns=col_names)
+    else:
+        X_lime = X.copy()
+
+    for k, v in categorical_names.items():
+        if not invert:
+            label_map = {
+                str_label: int_label for int_label, str_label in enumerate(v)
+            }
+
+        else:
+            label_map = {
+                int_label: str_label for int_label, str_label in enumerate(v)
+            }
+        #print("k", k)
+        #print("v", v)
+        #X_lime.to_csv(generated()+"xlime.csv")
+        #print('label_map:', label_map)
+        #print("x_lime [:,k]:",X_lime[:,k])
+        X_lime[k] = X_lime[k].map(label_map)
+    X_lime.to_csv(generated()+"xlime.csv")
+    return X_lime
+
+
 
 def resample_dataset(X_train, Y_train, A_train):
     negative_ids = Y_train[Y_train == 0].index
@@ -97,6 +147,7 @@ def figures_(data, output_name, show=False):
 
 
 def load_dataset():
+    print("load dataset")
     data = pd.read_csv(
         "https://raw.githubusercontent.com/fairlearn/talks/main/2021_scipy_tutorial/data/diabetic_preprocessed.csv")
 
@@ -116,7 +167,9 @@ def load_dataset():
     data = delete_rows(data)
     #data["race_all"] = data["race"].copy()
     data["race"] = data["race"].replace({"Asian": "Other", "Hispanic": "Other"})
-    data["diabetesMed"] = data["diabetesMed"].replace({"Yes": True, "No": False})
+    data["diabetesMed"] = data["diabetesMed"].replace({"Yes": 1, "No": 0})
+    data["A1Cresult"] =  data["A1Cresult"].fillna("NotTested")
+    data["max_glu_serum"] =  data["max_glu_serum"].fillna("NotTested")
 
     # Show the values of all binary and categorical features
     categorical_values = {}

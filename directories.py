@@ -74,6 +74,9 @@ def mitigated_eg_dir():
 def shap_dir():
     return generated() + 'shap/'
 
+def lime_dir():
+    return generated() + 'lime/'
+
 def clean_correlation_dirs():
     try:
         shutil.rmtree(correlation_dir())
@@ -86,7 +89,7 @@ def clean_correlation_dirs():
         print("An exception occurred")
 
 
-def clean_specific_dir(some_dir):
+def clean_specific_dir(some_dir: object) -> object:
     try:
         shutil.rmtree(some_dir)
     except:

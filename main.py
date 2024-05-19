@@ -5,7 +5,7 @@ from shap import initjs
 from sklearn import set_config
 from correlation import correlations
 from directories import clean_specific_dir, predictive_validity_dir, label_imbalance_dir, sensitive_proxies_dir
-from medical import medical, shap
+from medical import medical, shap, lime, lime2
 from datasets import load_dataset
 from label_imbalance import label_imbalance
 from predictive_validity import predictive_validity
@@ -24,7 +24,7 @@ random_seed = 422
 np.random.seed(random_seed)
 
 
-do = 6
+do = 7
 if do == 1:
     medical(show_counts_sf=True, show_pivot=False,
             show_train_test=True, show_coefficients=True, show_metrics_before=True, show_metrics_after=True,
@@ -50,3 +50,6 @@ if do == 5:
 
 if do == 6:
     shap(random_seed)
+
+if do == 7:
+    lime2(random_seed)
