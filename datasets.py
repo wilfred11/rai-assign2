@@ -3,6 +3,7 @@ import pandas as pd
 import seaborn as sns
 from matplotlib import pyplot as plt
 from sklearn.model_selection import train_test_split
+
 from directories import generated, test_train_dir
 from settings import categorical_features
 
@@ -11,7 +12,7 @@ def prepare_test_train_datasets(df, random_seed, get_dummies=True):
     print('prepare test train datasets')
     print('random seed:', random_seed)
     target_variable = "readmit_30_days"
-    #demographic = ["race", "gender"]
+    # demographic = ["race", "gender"]
     sensitive = ["race", "gender"]
     Y, A = df.loc[:, target_variable], df.loc[:, sensitive]
     '''X = pd.get_dummies(df.drop(columns=[
@@ -23,7 +24,7 @@ def prepare_test_train_datasets(df, random_seed, get_dummies=True):
         "readmit_30_days"
     ]))'''
 
-    #print('y index:', )
+    # print('y index:', )
 
     if get_dummies:
         X = pd.get_dummies(df.drop(columns=[
@@ -53,6 +54,7 @@ def prepare_test_train_datasets(df, random_seed, get_dummies=True):
     print('y_test:', Y_test)
     return X_train, X_test, Y_train, Y_test, A_train, A_test, df_train, df_test
 
+
 def convert_to_lime_format1(X, categorical_names, col_names=None, invert=False):
     """Converts data with categorical values as string into the right format
     for LIME, with categorical values as integers labels.
@@ -66,9 +68,9 @@ def convert_to_lime_format1(X, categorical_names, col_names=None, invert=False):
     """
 
     # If the data isn't a dataframe, we need to be able to build it
-    #print('x.ocls', X.columns)
-    #print('len cate names:', len(categorical_names))
-    #print('len_col: ',len(X.columns.to_list()))
+    # print('x.ocls', X.columns)
+    # print('len cate names:', len(categorical_names))
+    # print('len_col: ',len(X.columns.to_list()))
     if not isinstance(X, pd.DataFrame):
         X_lime = pd.DataFrame(X, columns=col_names)
     else:
@@ -84,15 +86,14 @@ def convert_to_lime_format1(X, categorical_names, col_names=None, invert=False):
             label_map = {
                 int_label: str_label for int_label, str_label in enumerate(v)
             }
-        #print("k", k)
-        #print("v", v)
-        #X_lime.to_csv(generated()+"xlime.csv")
-        #print('label_map:', label_map)
-        #print("x_lime [:,k]:",X_lime[:,k])
+        # print("k", k)
+        # print("v", v)
+        # X_lime.to_csv(generated()+"xlime.csv")
+        # print('label_map:', label_map)
+        # print("x_lime [:,k]:",X_lime[:,k])
         X_lime[k] = X_lime[k].map(label_map)
-    X_lime.to_csv(generated()+"xlime.csv")
+    X_lime.to_csv(generated() + "xlime.csv")
     return X_lime
-
 
 
 def resample_dataset(X_train, Y_train, A_train):
@@ -104,14 +105,15 @@ def resample_dataset(X_train, Y_train, A_train):
     Y_train = Y_train.loc[balanced_ids]
     A_train = A_train.loc[balanced_ids, :]
     print('resample x cols:', X_train.columns)
-    #print('resample y cols:', Y_train.columns)
+    # print('resample y cols:', Y_train.columns)
     pd.DataFrame(Y_train, columns=["label"])
     return X_train, Y_train, A_train
+
 
 def figures_test_train(A_train_bal, Y_train_bal, A_test, Y_test, show=False):
     plt.rcParams["figure.figsize"] = (20, 10)
     figures_(A_test, "A_test", show)
-    figures_( A_train_bal, "A_train_bal", show)
+    figures_(A_train_bal, "A_train_bal", show)
 
     sns.countplot(x=Y_train_bal)
     plt.savefig(test_train_dir() + 'y_train_bal_count.png')
@@ -161,24 +163,15 @@ def load_dataset():
     data = data.drop(columns=[
         "discharge_disposition_id",
         "readmitted",
-        #"readmit_30_days"
+        # "readmit_30_days"
     ])
 
     data = delete_rows(data)
-    #data["race_all"] = data["race"].copy()
+    # data["race_all"] = data["race"].copy()
     data["race"] = data["race"].replace({"Asian": "Other", "Hispanic": "Other"})
     data["diabetesMed"] = data["diabetesMed"].replace({"Yes": 1, "No": 0})
-    data["A1Cresult"] =  data["A1Cresult"].fillna("NotTested")
-    data["max_glu_serum"] =  data["max_glu_serum"].fillna("NotTested")
-
-    # Show the values of all binary and categorical features
-    categorical_values = {}
-    '''for col in data:
-        if col not in {'time_in_hospital', 'num_lab_procedures',
-                       'num_procedures', 'num_medications', 'number_diagnoses'}:
-            categorical_values[col] = pd.Series(data[col].value_counts().index.values)'''
-    #categorical_values_df = pd.DataFrame(categorical_values).fillna('')
-    #categorical_values_df.T
+    data["A1Cresult"] = data["A1Cresult"].fillna("NotTested")
+    data["max_glu_serum"] = data["max_glu_serum"].fillna("NotTested")
 
     for col_name in categorical_features():
         data[col_name] = data[col_name].astype("category")

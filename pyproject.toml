@@ -6,7 +6,7 @@ authors = ["wilfred11 <wilfredvancasteren@hotmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "3.11.6"
 fairlearn = "^0.10.0"
 scikit-learn = "^1.4.2"
 matplotlib = "^3.8.4"
@@ -15,7 +15,6 @@ seaborn = "^0.13.2"
 pingouin = "^0.5.4"
 openpyxl = "^3.1.2"
 shap = "^0.45.1"
-ipython = "^8.24.0"
 lime = "^0.2.0.1"
 
 

@@ -1,28 +1,26 @@
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from shap import initjs
 from sklearn import set_config
+
 from correlation import correlations
-from directories import clean_specific_dir, predictive_validity_dir, label_imbalance_dir, sensitive_proxies_dir
-from medical import medical, shap, lime, lime2
 from datasets import load_dataset
+from directories import clean_specific_dir, predictive_validity_dir, label_imbalance_dir, sensitive_proxies_dir
 from label_imbalance import label_imbalance
+from medical import medical, shap, lime2
 from predictive_validity import predictive_validity
 from proxies_sensitive_features import proxies_for_sensitive_features
 
-#pandas.set_option('display.max_columns', None)
-#pd.options.mode.copy_on_write = True
+# pandas.set_option('display.max_columns', None)
+# pd.options.mode.copy_on_write = True
 pd.set_option("display.float_format", "{:.3f}".format)
 set_config(display="diagram")
 sns.set()
 
-
-#initjs()
+# initjs()
 
 random_seed = 422
 np.random.seed(random_seed)
-
 
 do = 1
 if do == 1:
